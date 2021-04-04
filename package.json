@@ -1,0 +1,24 @@
+{
+  "name": "maze-game",
+  "version": "0.1.0",
+  "description": "",
+  "scripts": {
+    "start": "parcel public/index.html -p 42069",
+    "build": "parcel build public/index.html"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "three": "^0.127.0"
+  },
+  "devDependencies": {
+    "babel-preset-nano-react-app": "^0.1.0",
+    "parcel": "^2.0.0-alpha.3.2"
+  },
+  "babel": {
+    "presets": [
+      "nano-react-app"
+    ]
+  }
+}
