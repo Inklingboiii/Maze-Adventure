@@ -14,11 +14,7 @@ function Board(props) {
   let handleKeyDown;
 
   useEffect(() => {
-    if (!WEBGL.isWebGLAvailable()) {
-      //show error if webgl not available
-      const warning = WEBGL.getWebGLErrorMessage();
-      boardReference.appendChild(warning);
-    }
+    checkIfWebGLIsAvailable();
 
     let width = boardReference.current.clientWidth;
     let height = boardReference.current.clientHeight;
@@ -29,35 +25,66 @@ function Board(props) {
     camera.position.z = 3;
     //objects
 
-    //cube
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshPhongMaterial({
-      color: '#0ff',
-      flatShading: true
-    });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
-
     //light
     const light = new THREE.PointLight('#fff', 1);
-    light.position.set(0, 2, 4);
+    light.position.set(0, 100, 4);
     scene.add(light);
 
-    //renderer
-    const renderer = new THREE.WebGLRenderer({
+    //draw maze
+    let mazeData =  createMaze()
+    let mazeArray = mazeData.maze;
+    //draw floor
+    drawFloor(scene, mazeData.numberOfRows, mazeArray.numberOfColumns);
+    let mazeVisualization = [];
+    for(let row = 0; row < mazeArray.length; row++) {
+      mazeVisualization.push([]);
+      for(let col = 0; col < mazeArray[0].length; col++) {
+        mazeVisualization[row].push([]);
+        let cellVisualization =  mazeVisualization[row][col];
+        let cell = mazeArray[row][col];
+        let vectorTable =cell.vectorTable;
+        let parentVector = cell.connectVector;
+        //draw 3 cubes around each cell except where the parentvector points to
+        const geometry = new THREE.BoxGeometry(1, 5, 1);
+        let material;
+        if(cell.state === 0) {
+          material = new THREE.MeshBasicMaterial({color: '#ccc'});
+        }
+        if(cell.state === 1) {
+          material = new THREE.MeshBasicMaterial({color: '#0f0'});
+        }
+        if(cell.state === 2) {
+          material = new THREE.MeshBasicMaterial({color: '#00f'});
+        }
+        if(cell.state === 3) {
+          material = new THREE.MeshBasicMaterial({color: '#0ff'});
+        }
+        //draw cubes around cellVisualization
+        for(let neighborVector = 0; neighborVector < vectorTable.y.length; neighborVector++) {
+          let wall = new THREE.Mesh(geometry, material);
+          //times two to emphasize margin
+          if(neighborVector === parentVector) {
+            continue;
+          }
+          cellVisualization.push(wall);
+          wall.position.x =  vectorTable.x[neighborVector] * 2;
+          wall.position.z = vectorTable.y[neighborVector] * 2;
+          scene.add(wall);
+        }
+      }
+    }
+
+     //renderer
+     const renderer = new THREE.WebGLRenderer({
       canvas: boardReference.current
     });
     renderer.setSize(width, height, false)
     renderer.render(scene, camera);
 
-    //rotate cube
-    let timeOfLastMovement;
-    requestAnimationFrame(animate);
+    requestAnimationFrame(render);
 
-    //draw maze
-    console.log(createMaze());
 
-    function animate(timeStamp) {
+    function render() {
       //resize canvas content (not canvas element since that resizes automatically) and camera if canvas size was changed
       width = boardReference.current.clientWidth;
       height = boardReference.current.clientHeight;
@@ -69,20 +96,10 @@ function Board(props) {
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
       }
-      if (typeof timeOfLastMovement === 'undefined') {
-        timeOfLastMovement = timeStamp;
-      }
-      if (timeOfLastMovement + 1 < timeStamp) {
-        timeOfLastMovement = timeStamp;
-        cube.rotation.x += 0.01;
-        cube.rotation.y += 0.01;
-        cube.rotation.z += 0.01;
-        renderer.render(scene, camera);
-      }
 
       renderer.render(scene, camera);
 
-      requestAnimationFrame(animate);
+      requestAnimationFrame(render);
     }
 
     handleKeyDown = (key) => {
@@ -103,6 +120,8 @@ function Board(props) {
         case right[1]:
           camera.position.x += 0.1;
           break;
+        case 'Space':
+          camera.position.y += 1;
       }
     };
   }, []);
@@ -115,6 +134,23 @@ function Board(props) {
       onKeyDown={(key) => handleKeyDown(key)}
     ></canvas>
   );
+}
+
+function checkIfWebGLIsAvailable() {
+  if (!WEBGL.isWebGLAvailable()) {
+    //show error if webgl not available
+    const warning = WEBGL.getWebGLErrorMessage();
+    boardReference.appendChild(warning);
+  }
+}
+
+function drawFloor(scene, numberOfRows, numberOfColumns) {
+  const geometry = new THREE.PlaneGeometry(10, 10);
+  const material = new THREE.MeshBasicMaterial({color: '#f00', side: THREE.DoubleSide});
+  const floor = new THREE.Mesh(geometry, material);
+  floor.rotation.set(90, 0, 0)
+  scene.add(floor);
+  console.log(floor)
 }
 
 export default Board;
