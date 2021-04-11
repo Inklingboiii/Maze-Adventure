@@ -1,3 +1,5 @@
+//algorithm used: http://justinparrtech.com/JustinParr-Tech/wp-content/uploads/Creating%20Mazes%20Using%20Cellular%20Automata_v2.pdf
+
 export default function createMaze() {
   let maze = [];
   const numberOfRows = 2;
@@ -13,7 +15,7 @@ export default function createMaze() {
         connectVector: null, //vector pointing to parent
         inviteVector: null, // vector pointing to cell it invited
         neighbors: [], // array of neighbors that are disconnectd and can be invited
-        vectorTable: []
+        vectorTable: buildVectorTable(row, col)
       });
     }
   }
@@ -25,15 +27,20 @@ export default function createMaze() {
     ];
   initialSeed.state = 1;
 
+  while (!checkIfMazeIsComplete()) {
+    startNewGeneration();
+  }
+
   function startNewGeneration() {
+    console.log('maze', JSON.parse(JSON.stringify(maze)));
     //if no seeds exist transform some connected cells into seeds
     if (!checkIfSeedsExist()) {
+      console.log('no seeds exist');
       transformConnectedCellsIntoSeeds();
     }
     for (let row = 0; row < numberOfRows; row++) {
       for (let col = 0; col < numberOfColumns; col++) {
         let cell = maze[row][col];
-        cell.vectorTable = buildVectorTable(row, col);
         if (cell.state === 0) {
           handleDisconnectedCells(cell);
           continue;
@@ -67,7 +74,9 @@ export default function createMaze() {
         continue;
       }
       let neighbor =
-        maze[cell.vectorTable.y[neighborVector]][cell.vectorTable.x[neighborVector]];
+        maze[cell.vectorTable.y[neighborVector]][
+          cell.vectorTable.x[neighborVector]
+        ];
       if (typeof neighbor.inviteVector !== 'null' && neighbor.state === 2) {
         //if inverted invite vector from neighbor is equal to vector pointing to neighbor, that means the invite vector is pointing to the cell
         if ((neighbor.inviteVector + 2) % 4 === neighborVector) {
@@ -80,6 +89,8 @@ export default function createMaze() {
   }
 
   function handleSeeds(cell) {
+    //reset neighbors
+    cell.neighbors = [];
     //use vectortable to store disconnected nighbors to transform into seeds
     for (
       let neighborVector = 0;
@@ -94,14 +105,17 @@ export default function createMaze() {
         continue;
       }
       let neighbor =
-        maze[cell.vectorTable.y[neighborVector]][cell.vectorTable.x[neighborVector]];
+        maze[cell.vectorTable.y[neighborVector]][
+          cell.vectorTable.x[neighborVector]
+        ];
       if (neighbor.state === 0) {
         cell.neighbors.push(neighborVector);
       }
     }
     //make cell disconnected if it doesnt have any disconnected cells to invite
     if (!cell.neighbors.length) {
-      return (cell.state = 3);
+      cell.state = 3;
+      return;
     }
     /*pick random neighbor to invite and add directional persistence 
     by giving it a higher chance to get the opposite of its parentvector as invitevector so it continues in a straight line*/
@@ -136,12 +150,13 @@ export default function createMaze() {
   function checkIfMazeIsComplete() {
     for (let row = 0; row < numberOfRows; row++) {
       for (let col = 0; col < numberOfColumns; col++) {
-        if (maze[row][col].state !== 3) {
-          //if there are not connected cells return false, else return true
+        if (maze[row][col].state === 0) {
+          //if there are disconnected return false, else return true
           return false;
         }
       }
     }
+    console.log('maze complete');
     return true;
   }
 
@@ -159,15 +174,16 @@ export default function createMaze() {
   function transformConnectedCellsIntoSeeds() {
     for (let row = 0; row < numberOfRows; row++) {
       for (let col = 0; col < numberOfColumns; col++) {
+        //filter out non connected cells
         if (maze[row][col].state !== 3) {
           continue;
         }
         let cell = maze[row][col];
-        let vectorTable = buildVectorTable(cell);
+        let vectorTable = cell.vectorTable;
         //loop though neighbors to find disconnected cells
         for (
           let neighborVector = 0;
-          neighborVector > vectorTable.y.length;
+          neighborVector < vectorTable.y.length;
           neighborVector++
         ) {
           //collission detection
@@ -177,19 +193,21 @@ export default function createMaze() {
           ) {
             continue;
           }
-          let neighbor = maze[vectorTable.y[neighborVector][vectorTable.x[neighborVector]]];
-          //transform connected cell into seed depending on branching probability and stop looping though neighbors
-          if(neighbor.state === 0) {
-            if(randomPercentage() < branchProbabilty) {
-              cell.state === 1;
-            }
+          let neighbor =
+            maze[vectorTable.y[neighborVector]][vectorTable.x[neighborVector]];
+          //interrupt process if neighbor isnt disconnected
+          if (neighbor.state !== 0) {
+            continue;
           }
+          //transform connected cell into seed depending on branching probability and stop looping though neighbors
+          if (randomPercentage() <= branchProbabilty) {
+            cell.state = 1;
+          } 
           break;
         }
       }
     }
   }
-
 
   function buildVectorTable(row, col) {
     //0 = NORTH
@@ -213,7 +231,7 @@ export default function createMaze() {
       ) {
         vectorTable.y[neighborVector] = null;
       }
-  
+
       if (
         vectorTable.x[neighborVector] < 0 ||
         vectorTable.x[neighborVector] >= numberOfColumns
@@ -223,11 +241,10 @@ export default function createMaze() {
     }
     return vectorTable;
   }
-  
+
   function randomPercentage() {
     return Math.floor(Math.random() * 100);
   }
-  startNewGeneration();
   return {
     maze,
     numberOfColumns,

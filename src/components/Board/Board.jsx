@@ -26,15 +26,18 @@ function Board(props) {
     //objects
 
     //light
-    const light = new THREE.PointLight('#fff', 1);
-    light.position.set(0, 100, 4);
+    const light = new THREE.DirectionalLight('#4ff', 1);
+    light.position.set(0, 10, 4);
     scene.add(light);
 
     //draw maze
-    let mazeData =  createMaze()
+    console.time('maze creation');
+    let mazeData =  createMaze();
+    console.timeEnd('maze creation');
     let mazeArray = mazeData.maze;
     //draw floor
     drawFloor(scene, mazeData.numberOfRows, mazeArray.numberOfColumns);
+    //store cubes in array
     let mazeVisualization = [];
     for(let row = 0; row < mazeArray.length; row++) {
       mazeVisualization.push([]);
@@ -42,37 +45,28 @@ function Board(props) {
         mazeVisualization[row].push([]);
         let cellVisualization =  mazeVisualization[row][col];
         let cell = mazeArray[row][col];
-        let vectorTable =cell.vectorTable;
+        let vectorTable = cell.vectorTable;
         let parentVector = cell.connectVector;
         //draw 3 cubes around each cell except where the parentvector points to
-        const geometry = new THREE.BoxGeometry(1, 5, 1);
-        let material;
-        if(cell.state === 0) {
-          material = new THREE.MeshBasicMaterial({color: '#ccc'});
-        }
-        if(cell.state === 1) {
-          material = new THREE.MeshBasicMaterial({color: '#0f0'});
-        }
-        if(cell.state === 2) {
-          material = new THREE.MeshBasicMaterial({color: '#00f'});
-        }
-        if(cell.state === 3) {
-          material = new THREE.MeshBasicMaterial({color: '#0ff'});
-        }
         //draw cubes around cellVisualization
+        console.log('cell', cell)
         for(let neighborVector = 0; neighborVector < vectorTable.y.length; neighborVector++) {
-          let wall = new THREE.Mesh(geometry, material);
-          //times two to emphasize margin
-          if(neighborVector === parentVector) {
+          const geometry = new THREE.BoxGeometry(1, 5, 1);
+          const material = new THREE.MeshBasicMaterial({color: '#fff'});
+          const wall = new THREE.Mesh(geometry, material);
+          if(neighborVector === parentVector || vectorTable.x[neighborVector] === null || vectorTable.y[neighborVector] === null) {
+            console.log('continued', neighborVector, parentVector, vectorTable)
             continue;
           }
           cellVisualization.push(wall);
-          wall.position.x =  vectorTable.x[neighborVector] * 2;
-          wall.position.z = vectorTable.y[neighborVector] * 2;
+          //multiply position to emphasize margin
+          wall.position.x =  (vectorTable.x[neighborVector] + 1) * 2;
+          wall.position.z = (vectorTable.y[neighborVector] + 1) * 2;
           scene.add(wall);
         }
       }
     }
+   //scene.children.map(object => console.log(object.position))
 
      //renderer
      const renderer = new THREE.WebGLRenderer({
@@ -146,11 +140,10 @@ function checkIfWebGLIsAvailable() {
 
 function drawFloor(scene, numberOfRows, numberOfColumns) {
   const geometry = new THREE.PlaneGeometry(10, 10);
-  const material = new THREE.MeshBasicMaterial({color: '#f00', side: THREE.DoubleSide});
+  const material = new THREE.MeshPhongMaterial({color: '#f00', side: THREE.DoubleSide});
   const floor = new THREE.Mesh(geometry, material);
   floor.rotation.set(90, 0, 0)
   scene.add(floor);
-  console.log(floor)
 }
 
 export default Board;
