@@ -18,20 +18,20 @@ function Board(props) {
   let scene;
   let camera;
   let renderer;
-  let controls
+  let controls;
+  let speed;
 
   //initialize variables and data
   useEffect(() => {
     checkIfWebGLIsAvailable();
-    console.log('board', boardReference);
     width = boardReference.current.clientWidth;
     height = boardReference.current.clientHeight;
+    speed = 0.1;
     //scene
     scene = new THREE.Scene();
     //camera
     camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 3;
-    camera.lookAt(0, -90, 0);
     //renderer
     renderer = new THREE.WebGLRenderer({
       canvas: boardReference.current
@@ -69,7 +69,7 @@ function Board(props) {
       mazeVisualization.push([]);
       for(let col = 0; col < mazeArray[0].length * 2 + 1; col++) {
         //draw wall and add it to array to keep track of it
-        const geometry = new THREE.BoxGeometry(2, mazeHeight, 1);
+        const geometry = new THREE.BoxGeometry(1, mazeHeight, 1);
         const material = new THREE.MeshBasicMaterial({color: '#fff'});
         const wall = new THREE.Mesh(geometry, material);
         wall.position.x = col;
@@ -126,26 +126,20 @@ function Board(props) {
     switch (key.nativeEvent.code) {
       case up[0]:
       case up[1]:
-        camera.position.z -= 0.1;
+       controls.moveForward(speed);
         break;
       case down[0]:
       case down[1]:
-        camera.position.z += 0.1;
+        controls.moveForward(-speed); //invert speed to move backwards
         break;
       case left[0]:
       case left[1]:
-        camera.position.x -= 0.1;
+       controls.moveRight(-speed); //invert speed to move left
         break;
       case right[0]:
       case right[1]:
-        camera.position.x += 0.1;
+       controls.moveRight(speed);
         break;
-     case 'KeyQ':
-       camera.rotation.y += 0.1;
-       break;
-    case 'KeyE':
-      camera.rotation.y -= 0.1;
-      break;
       case 'Space':
         camera.position.y += 0.1;
     }
