@@ -1,5 +1,12 @@
-.board {
+.boardContainer,
+.boardContainer__board {
     display: block;
     height: 100%;
     width: 100%;
+}
+
+.boardContainer__btn--start {
+    position: absolute;
+    top: 1em;
+    right: 1em;
 }

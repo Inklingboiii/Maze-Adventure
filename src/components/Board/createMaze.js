@@ -2,8 +2,8 @@
 
 export default function createMaze() {
   let maze = [];
-  const numberOfRows = 2;
-  const numberOfColumns = 2;
+  const numberOfRows = 25;
+  const numberOfColumns = 25;
   const branchProbabilty = 5;
   const turnProbability = 10;
   //initialize maze
@@ -32,10 +32,8 @@ export default function createMaze() {
   }
 
   function startNewGeneration() {
-    console.log('maze', JSON.parse(JSON.stringify(maze)));
     //if no seeds exist transform some connected cells into seeds
     if (!checkIfSeedsExist()) {
-      console.log('no seeds exist');
       transformConnectedCellsIntoSeeds();
     }
     for (let row = 0; row < numberOfRows; row++) {
@@ -121,7 +119,7 @@ export default function createMaze() {
     by giving it a higher chance to get the opposite of its parentvector as invitevector so it continues in a straight line*/
     //also check if cell has a parent vector, since the seed doesnt have one
     if (
-      randomPercentage() > turnProbability &&
+      randomPercentage() < turnProbability &&
       cell.connectVector !== null &&
       cell.neighbors.includes((cell.connectVector + 2) % 4)
     ) {
@@ -130,6 +128,7 @@ export default function createMaze() {
       cell.inviteVector =
         cell.neighbors[Math.floor(Math.random() * cell.neighbors.length)];
     }
+
     //change cell to invite state
     cell.state = 2;
   }
@@ -217,7 +216,6 @@ export default function createMaze() {
     let vectorTable = {
       y: [row - 1, row, row + 1, row],
       x: [col, col + 1, col, col - 1],
-      original: [row, col]
     };
     //collission detection
     for (
@@ -245,9 +243,5 @@ export default function createMaze() {
   function randomPercentage() {
     return Math.floor(Math.random() * 100);
   }
-  return {
-    maze,
-    numberOfColumns,
-    numberOfRows
-  };
+  return maze;
 }

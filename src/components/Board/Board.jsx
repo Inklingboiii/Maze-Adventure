@@ -1,75 +1,39 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import WEBGL from './webgl';
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
+import { WEBGL } from 'three/examples/jsm/WebGL';
 import createMaze from './createMaze';
 import './Board.css';
 
 function Board(props) {
-  const boardReference = useRef(null);
+  const boardReference = useRef();
 
   const up = ['KeyW', 'ArrowUp'];
   const down = ['KeyS', 'ArrowDown'];
   const left = ['KeyA', 'ArrowLeft'];
   const right = ['KeyD', 'ArrowRight'];
-  let handleKeyDown;
 
+  let width;
+  let height;
+  let scene;
+  let camera;
+  let renderer;
+  let controls
+
+  //initialize variables and data
   useEffect(() => {
     checkIfWebGLIsAvailable();
-
-    let width = boardReference.current.clientWidth;
-    let height = boardReference.current.clientHeight;
+    console.log('board', boardReference);
+    width = boardReference.current.clientWidth;
+    height = boardReference.current.clientHeight;
     //scene
-    const scene = new THREE.Scene();
+    scene = new THREE.Scene();
     //camera
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 3;
-    //objects
-
-    //light
-    const light = new THREE.DirectionalLight('#4ff', 1);
-    light.position.set(0, 10, 4);
-    scene.add(light);
-
-    //draw maze
-    console.time('maze creation');
-    let mazeData =  createMaze();
-    console.timeEnd('maze creation');
-    let mazeArray = mazeData.maze;
-    //draw floor
-    drawFloor(scene, mazeData.numberOfRows, mazeArray.numberOfColumns);
-    //store cubes in array
-    let mazeVisualization = [];
-    for(let row = 0; row < mazeArray.length; row++) {
-      mazeVisualization.push([]);
-      for(let col = 0; col < mazeArray[0].length; col++) {
-        mazeVisualization[row].push([]);
-        let cellVisualization =  mazeVisualization[row][col];
-        let cell = mazeArray[row][col];
-        let vectorTable = cell.vectorTable;
-        let parentVector = cell.connectVector;
-        //draw 3 cubes around each cell except where the parentvector points to
-        //draw cubes around cellVisualization
-        console.log('cell', cell)
-        for(let neighborVector = 0; neighborVector < vectorTable.y.length; neighborVector++) {
-          const geometry = new THREE.BoxGeometry(1, 5, 1);
-          const material = new THREE.MeshBasicMaterial({color: '#fff'});
-          const wall = new THREE.Mesh(geometry, material);
-          if(neighborVector === parentVector || vectorTable.x[neighborVector] === null || vectorTable.y[neighborVector] === null) {
-            console.log('continued', neighborVector, parentVector, vectorTable)
-            continue;
-          }
-          cellVisualization.push(wall);
-          //multiply position to emphasize margin
-          wall.position.x =  (vectorTable.x[neighborVector] + 1) * 2;
-          wall.position.z = (vectorTable.y[neighborVector] + 1) * 2;
-          scene.add(wall);
-        }
-      }
-    }
-   //scene.children.map(object => console.log(object.position))
-
-     //renderer
-     const renderer = new THREE.WebGLRenderer({
+    camera.lookAt(0, -90, 0);
+    //renderer
+    renderer = new THREE.WebGLRenderer({
       canvas: boardReference.current
     });
     renderer.setSize(width, height, false)
@@ -77,58 +41,134 @@ function Board(props) {
 
     requestAnimationFrame(render);
 
+    //controls
+    controls = new PointerLockControls(camera, boardReference.current)
 
-    function render() {
-      //resize canvas content (not canvas element since that resizes automatically) and camera if canvas size was changed
-      width = boardReference.current.clientWidth;
-      height = boardReference.current.clientHeight;
-      if (
-        boardReference.current.width !== width ||
-        boardReference.current.height !== height
-      ) {
-        renderer.setSize(width, height, false); //sets size of canvas
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-      }
-
-      renderer.render(scene, camera);
-
-      requestAnimationFrame(render);
-    }
-
-    handleKeyDown = (key) => {
-      switch (key.nativeEvent.code) {
-        case up[0]:
-        case up[1]:
-          camera.position.z -= 0.1;
-          break;
-        case down[0]:
-        case down[1]:
-          camera.position.z += 0.1;
-          break;
-        case left[0]:
-        case left[1]:
-          camera.position.x -= 0.1;
-          break;
-        case right[0]:
-        case right[1]:
-          camera.position.x += 0.1;
-          break;
-        case 'Space':
-          camera.position.y += 1;
-      }
-    };
   }, []);
 
+  //draw objects and create maze
+  useEffect(() => {
+    //light
+    const light = new THREE.DirectionalLight('#4ff', 1);
+    light.position.set(0, 10, 4);
+    scene.add(light);
+
+    //create maze
+    const mazeHeight = 5;
+    console.time('maze creation');
+    let mazeArray =  createMaze();
+    let mazeVisualization = [];
+    console.timeEnd('maze creation');
+    //draw floor
+    drawFloor(scene, mazeArray.length, mazeArray[0].length, mazeHeight);
+
+    //draw maze
+
+    //draw initial walls around each cube and then remove them later on with parent vector
+    for(let row = 0; row < mazeArray.length * 2 + 1; row++) {
+      mazeVisualization.push([]);
+      for(let col = 0; col < mazeArray[0].length * 2 + 1; col++) {
+        //draw wall and add it to array to keep track of it
+        const geometry = new THREE.BoxGeometry(2, mazeHeight, 1);
+        const material = new THREE.MeshBasicMaterial({color: '#fff'});
+        const wall = new THREE.Mesh(geometry, material);
+        wall.position.x = col;
+        wall.position.z = row;
+        scene.add(wall);
+        mazeVisualization[row].push(wall);
+      }
+    }
+
+    //loop though walls and remove walls where a  parent vector is pointing to
+    for(let row = 1; row < mazeArray.length * 2 + 1; row += 2) {
+      for(let col = 1; col < mazeArray[0].length * 2 + 1; col += 2) {
+        //remove cube
+        scene.remove(mazeVisualization[row][col]);
+        mazeVisualization[row][col] = null
+        //make path by erasing the walls at the parent vector
+        let cell = mazeArray[(row - 1) / 2][(col - 1) / 2];
+        const parentVector = cell.connectVector;
+        let vectorTable = cell.vectorTable;
+         //check if cube has parent vector
+         if(parentVector === null) {
+           continue;
+         }
+         //use math to convert parent cell into parentBlock
+        const parentBlockRow = vectorTable.y[parentVector] + ((row + 1) / 2);
+        const parentBlockColumn = vectorTable.x[parentVector] + ((col + 1) / 2);
+        let parentBlock = mazeVisualization[parentBlockRow][parentBlockColumn];
+        scene.remove(parentBlock);
+        //cant set parentBlock to null, since that wouldnt work due to references
+        mazeVisualization[parentBlockRow][parentBlockColumn] = null;
+      }
+    }
+  }, []);
+
+
+  function render() {
+    //resize canvas content (not canvas element since that resizes automatically) and camera if canvas size was changed
+    width = boardReference.current.clientWidth;
+    height = boardReference.current.clientHeight;
+    if (
+      boardReference.current.width !== width ||
+      boardReference.current.height !== height
+    ) {
+      renderer.setSize(width, height, false); //sets size of canvas
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+    renderer.render(scene, camera);
+  
+    requestAnimationFrame(render);
+  }
+
+  function handleKeyDown(key) {
+    switch (key.nativeEvent.code) {
+      case up[0]:
+      case up[1]:
+        camera.position.z -= 0.1;
+        break;
+      case down[0]:
+      case down[1]:
+        camera.position.z += 0.1;
+        break;
+      case left[0]:
+      case left[1]:
+        camera.position.x -= 0.1;
+        break;
+      case right[0]:
+      case right[1]:
+        camera.position.x += 0.1;
+        break;
+     case 'KeyQ':
+       camera.rotation.y += 0.1;
+       break;
+    case 'KeyE':
+      camera.rotation.y -= 0.1;
+      break;
+      case 'Space':
+        camera.position.y += 0.1;
+    }
+    camera.updateProjectionMatrix();
+  }
+  
+  function togglePointerControls() {
+    controls.lock();
+  }
   return (
-    <canvas
+    <div className={'boardContainer'}>
+      <canvas
       tabIndex={0}
-      className={'board'}
+      className={'boardContainer__board'}
       ref={boardReference}
-      onKeyDown={(key) => handleKeyDown(key)}
+      onKeyDown={handleKeyDown}
     ></canvas>
+    <button className={'btn boardContainer__btn--start'} onClick={togglePointerControls}>Click To Start</button>
+    </div>
   );
 }
+
+
 
 function checkIfWebGLIsAvailable() {
   if (!WEBGL.isWebGLAvailable()) {
@@ -138,12 +178,18 @@ function checkIfWebGLIsAvailable() {
   }
 }
 
-function drawFloor(scene, numberOfRows, numberOfColumns) {
-  const geometry = new THREE.PlaneGeometry(10, 10);
+
+function drawFloor(scene, numberOfRows, numberOfColumns, mazeHeight) {
+  const geometry = new THREE.PlaneGeometry(numberOfColumns * 2, numberOfRows * 2);
   const material = new THREE.MeshPhongMaterial({color: '#f00', side: THREE.DoubleSide});
   const floor = new THREE.Mesh(geometry, material);
-  floor.rotation.set(90, 0, 0)
+  floor.rotation.x = Math.PI / 2;
+  floor.position.set(numberOfColumns, -(mazeHeight / 2), numberOfRows); //put floor under walls
   scene.add(floor);
 }
+
+
+
+
 
 export default Board;
