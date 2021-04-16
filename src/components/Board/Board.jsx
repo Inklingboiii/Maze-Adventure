@@ -18,6 +18,7 @@ function Board(props) {
   let scene;
   let camera;
   let renderer;
+  let loader
   let controls;
   let speed;
 
@@ -42,7 +43,9 @@ function Board(props) {
     requestAnimationFrame(render);
 
     //controls
-    controls = new PointerLockControls(camera, boardReference.current)
+    controls = new PointerLockControls(camera, boardReference.current);
+    //loader
+    loader = new THREE.TextureLoader();
 
   }, []);
 
@@ -70,7 +73,9 @@ function Board(props) {
       for(let col = 0; col < mazeArray[0].length * 2 + 1; col++) {
         //draw wall and add it to array to keep track of it
         const geometry = new THREE.BoxGeometry(1, mazeHeight, 1);
-        const material = new THREE.MeshBasicMaterial({color: '#fff'});
+        const material = new THREE.MeshBasicMaterial({
+          map: loader.load('https://images.pexels.com/photos/4913801/pexels-photo-4913801.jpeg?auto=compress&cs=tinysrgb&h=750&w=1260')
+        });
         const wall = new THREE.Mesh(geometry, material);
         wall.position.x = col;
         wall.position.z = row;
