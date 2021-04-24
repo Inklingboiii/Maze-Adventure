@@ -21,8 +21,6 @@ function Board(props) {
   let camera;
   let renderer;
   let loader;
-  let texture;
-  let normalMap;
   let controls;
   let speed;
 
@@ -41,89 +39,132 @@ function Board(props) {
     renderer = new THREE.WebGLRenderer({
       canvas: boardReference.current
     });
-    renderer.setSize(width, height, false)
-    renderer.render(scene, camera);
-
-    requestAnimationFrame(render);
+    renderer.setSize(width, height, false);
 
     //controls
     controls = new PointerLockControls(camera, boardReference.current);
     //loader
     loader = new THREE.TextureLoader();
-    //texture
-    console.time('texture loading');
-    texture = loader.load(wallMap, () => console.timeEnd('texture loading'))
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(1, 5);
-    //normal map
-    normalMap = loader.load(wallNormalMap);
-   
+    //light
+    addLight();
+
+    function addLight() {
+      const light = new THREE.DirectionalLight('#fff', 1);
+      light.target = camera;
+      scene.add(light);
+    }
+
+    function checkIfWebGLIsAvailable() {
+      if (!WEBGL.isWebGLAvailable()) {
+        //show error if webgl not available
+        const warning = WEBGL.getWebGLErrorMessage();
+        boardReference.appendChild(warning);
+      }
+    }
   }, []);
 
   //draw objects and create maze
-  useEffect(() => {
-    //light
-    const light = new THREE.DirectionalLight('#fff', 1);
-    //light.target = camera;
-    scene.add(light);
+  function startGame() {
     //create maze
     const mazeHeight = 5;
-    console.time('maze creation');
-    let mazeArray =  createMaze();
-    let mazeVisualization = [];
-    console.timeEnd('maze creation');
-    //draw floor
-    drawFloor(scene, mazeArray.length, mazeArray[0].length, mazeHeight);
-    console.time('maze rendering');
+    const mazeWidth = 2;
+    let mazeArray = createMaze();
+
     //draw maze
-    //maze materials
-    const geometry = new THREE.BoxGeometry(1, mazeHeight, 1);
-    const material = new THREE.MeshBasicMaterial({
-      map: texture,
-      normalMap: normalMap 
-    });
-    material.color = new THREE.Color('#fff');
-    //draw initial walls around each cube and then remove them later on with parent vector
-    for(let row = 0; row < mazeArray.length * 2 + 1; row++) {
-      mazeVisualization.push([]);
-      for(let col = 0; col < mazeArray[0].length * 2 + 1; col++) {
-        //draw wall and add it to array to keep track of it
-        const wall = new THREE.Mesh(geometry, material);
-        wall.position.x = col;
-        wall.position.z = row;
-        scene.add(wall);
-        mazeVisualization[row].push(wall);
-      }
+    drawMaze();
+
+    //draw floor
+    drawFloor();
+
+    //enable controls
+    togglePointerControls();
+
+    //render
+    requestAnimationFrame(render);
+
+    function drawFloor() {
+      const numberOfRows = mazeArray.length;
+      const numberOfColumns = mazeArray[0].length;
+      const geometry = new THREE.PlaneGeometry(
+        numberOfColumns * 2,
+        numberOfRows * 2
+      );
+      const material = new THREE.MeshPhongMaterial({
+        color: '#f00',
+        side: THREE.DoubleSide
+      });
+      const floor = new THREE.Mesh(geometry, material);
+      floor.rotation.x = Math.PI / 2;
+      floor.position.set(numberOfColumns, -(mazeHeight / 2), numberOfRows); //put floor under walls
+      scene.add(floor);
     }
 
-    //loop though walls and remove walls where a  parent vector is pointing to
-    for(let row = 1; row < mazeArray.length * 2 + 1; row += 2) {
-      for(let col = 1; col < mazeArray[0].length * 2 + 1; col += 2) {
-        //remove cube
-        scene.remove(mazeVisualization[row][col]);
-        mazeVisualization[row][col] = null
-        //make path by erasing the walls at the parent vector
-        let cell = mazeArray[(row - 1) / 2][(col - 1) / 2];
-        const parentVector = cell.connectVector;
-        let vectorTable = cell.vectorTable;
-         //check if cube has parent vector
-         if(parentVector === null) {
-           continue;
-         }
-         //use math to convert parent cell into parentBlock
-        const parentBlockRow = vectorTable.y[parentVector] + ((row + 1) / 2);
-        const parentBlockColumn = vectorTable.x[parentVector] + ((col + 1) / 2);
-        let parentBlock = mazeVisualization[parentBlockRow][parentBlockColumn];
-        scene.remove(parentBlock);
-        //cant set parentBlock to null, since that wouldnt work due to references
-        mazeVisualization[parentBlockRow][parentBlockColumn] = null;
+    function wallMaterials() {
+      const geometry = new THREE.BoxGeometry(mazeWidth, mazeHeight, mazeWidth);
+
+      //repeat textures for material so it doesn't stretch
+      const texture = loader.load(wallMap);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(mazeWidth, mazeHeight);
+
+      //normal map
+      const normalMap = loader.load(wallNormalMap);
+      //don't add texture and map to top and bottom since player wouldn't see it
+      let materials = [
+        new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap }),
+        new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap }),
+        new THREE.MeshBasicMaterial(),
+        new THREE.MeshBasicMaterial(),
+        new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap }),
+        new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap })
+      ];
+      return [geometry, materials];
+    }
+
+    function drawMaze() {
+      let mazeVisualization = [];
+      //maze materials
+      const [geometry, materials] = wallMaterials();
+      //draw initial walls around each cube and then remove them later on with parent vector
+      for (let row = 0; row < mazeArray.length * 2 + 1; row++) {
+        mazeVisualization.push([]);
+        for (let col = 0; col < mazeArray[0].length * 2 + 1; col++) {
+          //draw wall and add it to array to keep track of it
+          const wall = new THREE.Mesh(geometry, materials);
+          wall.position.x = col * mazeWidth;
+          wall.position.z = row * mazeWidth;
+          scene.add(wall);
+          mazeVisualization[row].push(wall);
+        }
+      }
+
+      //loop though walls and remove walls where a  parent vector is pointing to
+      for (let row = 1; row < mazeArray.length * 2 + 1; row += 2) {
+        for (let col = 1; col < mazeArray[0].length * 2 + 1; col += 2) {
+          //remove cube
+          scene.remove(mazeVisualization[row][col]);
+          mazeVisualization[row][col] = null;
+          //make path by erasing the walls at the parent vector
+          let cell = mazeArray[(row - 1) / 2][(col - 1) / 2];
+          const parentVector = cell.connectVector;
+          let vectorTable = cell.vectorTable;
+          //check if cube has parent vector
+          if (parentVector === null) {
+            continue;
+          }
+          //use math to convert parent cell into parentBlock
+          const parentBlockRow = vectorTable.y[parentVector] + (row + 1) / 2;
+          const parentBlockColumn = vectorTable.x[parentVector] + (col + 1) / 2;
+          let parentBlock =
+            mazeVisualization[parentBlockRow][parentBlockColumn];
+          scene.remove(parentBlock);
+          //cant set parentBlock to null, since that wouldnt work due to references
+          mazeVisualization[parentBlockRow][parentBlockColumn] = null;
+        }
       }
     }
-    console.timeEnd('maze rendering');
-    console.log(scene);
-  }, []);
-
+  }
 
   function render() {
     //resize canvas content (not canvas element since that resizes automatically) and camera if canvas size was changed
@@ -138,7 +179,7 @@ function Board(props) {
       camera.updateProjectionMatrix();
     }
     renderer.render(scene, camera);
-  
+
     requestAnimationFrame(render);
   }
 
@@ -146,7 +187,7 @@ function Board(props) {
     switch (key.nativeEvent.code) {
       case up[0]:
       case up[1]:
-       controls.moveForward(speed);
+        controls.moveForward(speed);
         break;
       case down[0]:
       case down[1]:
@@ -154,56 +195,38 @@ function Board(props) {
         break;
       case left[0]:
       case left[1]:
-       controls.moveRight(-speed); //invert speed to move left
+        controls.moveRight(-speed); //invert speed to move left
         break;
       case right[0]:
       case right[1]:
-       controls.moveRight(speed);
+        controls.moveRight(speed);
         break;
       case 'Space':
         camera.position.y += 0.1;
     }
     camera.updateProjectionMatrix();
   }
-  
+
   function togglePointerControls() {
-    controls.lock();
+    if (controls.isLocked) {
+      controls.unlock();
+    } else {
+      controls.lock();
+    }
   }
   return (
     <div className={'boardContainer'}>
       <canvas
-      tabIndex={0}
-      className={'boardContainer__board'}
-      ref={boardReference}
-      onKeyDown={handleKeyDown}
-    ></canvas>
-    <button className={'btn boardContainer__btn--start'} onClick={togglePointerControls}>Click To Start</button>
+        tabIndex={0}
+        className={'boardContainer__board'}
+        ref={boardReference}
+        onKeyDown={handleKeyDown}
+      ></canvas>
+      <button className={'btn boardContainer__btn--start'} onClick={startGame}>
+        Click To Start
+      </button>
     </div>
   );
 }
-
-
-
-function checkIfWebGLIsAvailable() {
-  if (!WEBGL.isWebGLAvailable()) {
-    //show error if webgl not available
-    const warning = WEBGL.getWebGLErrorMessage();
-    boardReference.appendChild(warning);
-  }
-}
-
-
-function drawFloor(scene, numberOfRows, numberOfColumns, mazeHeight) {
-  const geometry = new THREE.PlaneGeometry(numberOfColumns * 2, numberOfRows * 2);
-  const material = new THREE.MeshPhongMaterial({color: '#f00', side: THREE.DoubleSide});
-  const floor = new THREE.Mesh(geometry, material);
-  floor.rotation.x = Math.PI / 2;
-  floor.position.set(numberOfColumns, -(mazeHeight / 2), numberOfRows); //put floor under walls
-  scene.add(floor);
-}
-
-
-
-
 
 export default Board;
