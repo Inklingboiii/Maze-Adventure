@@ -2,8 +2,8 @@
 
 export default function createMaze() {
   let maze = [];
-  const numberOfRows = 2;
-  const numberOfColumns = 2;
+  const numberOfRows = 25;
+  const numberOfColumns = 25;
   const branchProbabilty = 5;
   const turnProbability = 10;
   //initialize maze

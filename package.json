@@ -13,6 +13,7 @@
     "three": "^0.127.0"
   },
   "devDependencies": {
+    "@parcel/transformer-image": "^2.0.0-beta.2",
     "babel-preset-nano-react-app": "^0.1.0",
     "parcel": "^2.0.0-alpha.3.2"
   },

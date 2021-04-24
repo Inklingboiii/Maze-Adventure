@@ -4,6 +4,8 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import { WEBGL } from 'three/examples/jsm/WebGL';
 import createMaze from './createMaze';
 import './Board.css';
+import wallMap from 'url:../../../public/assets/wallMap.jpg';
+import wallNormalMap from 'url:../../../public/assets/wallNormalMap.png';
 
 function Board(props) {
   const boardReference = useRef();
@@ -18,7 +20,9 @@ function Board(props) {
   let scene;
   let camera;
   let renderer;
-  let loader
+  let loader;
+  let texture;
+  let normalMap;
   let controls;
   let speed;
 
@@ -46,16 +50,23 @@ function Board(props) {
     controls = new PointerLockControls(camera, boardReference.current);
     //loader
     loader = new THREE.TextureLoader();
-
+    //texture
+    console.time('texture loading');
+    texture = loader.load(wallMap, () => console.timeEnd('texture loading'))
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 5);
+    //normal map
+    normalMap = loader.load(wallNormalMap);
+   
   }, []);
 
   //draw objects and create maze
   useEffect(() => {
     //light
-    const light = new THREE.DirectionalLight('#4ff', 1);
-    light.position.set(0, 10, 4);
+    const light = new THREE.DirectionalLight('#fff', 1);
+    //light.target = camera;
     scene.add(light);
-
     //create maze
     const mazeHeight = 5;
     console.time('maze creation');
@@ -64,18 +75,20 @@ function Board(props) {
     console.timeEnd('maze creation');
     //draw floor
     drawFloor(scene, mazeArray.length, mazeArray[0].length, mazeHeight);
-
+    console.time('maze rendering');
     //draw maze
-
+    //maze materials
+    const geometry = new THREE.BoxGeometry(1, mazeHeight, 1);
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      normalMap: normalMap 
+    });
+    material.color = new THREE.Color('#fff');
     //draw initial walls around each cube and then remove them later on with parent vector
     for(let row = 0; row < mazeArray.length * 2 + 1; row++) {
       mazeVisualization.push([]);
       for(let col = 0; col < mazeArray[0].length * 2 + 1; col++) {
         //draw wall and add it to array to keep track of it
-        const geometry = new THREE.BoxGeometry(1, mazeHeight, 1);
-        const material = new THREE.MeshBasicMaterial({
-          map: loader.load('https://images.pexels.com/photos/4913801/pexels-photo-4913801.jpeg?auto=compress&cs=tinysrgb&h=750&w=1260')
-        });
         const wall = new THREE.Mesh(geometry, material);
         wall.position.x = col;
         wall.position.z = row;
@@ -107,6 +120,8 @@ function Board(props) {
         mazeVisualization[parentBlockRow][parentBlockColumn] = null;
       }
     }
+    console.timeEnd('maze rendering');
+    console.log(scene);
   }, []);
 
 
