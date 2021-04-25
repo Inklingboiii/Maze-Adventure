@@ -147,6 +147,7 @@ function Board(props) {
         new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap }),
         new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap })
       ];
+      console.log(new THREE.InstancedMesh(geometry, materials, 10))
       return [geometry, materials];
     }
 
@@ -154,26 +155,30 @@ function Board(props) {
       let mazeVisualization = [];
       //maze materials
       const [geometry, materials] = wallMaterials();
+      const wallInstances = new THREE.InstancedMesh(geometry, materials, (mazeArray.length * 2 + 1) * (mazeArray[0].length * 2 + 1));
+      const positionalObject = new THREE.Object3D();
       //draw initial walls around each cube and then remove them later on with parent vector
       for (let row = 0; row < mazeArray.length * 2 + 1; row++) {
         mazeVisualization.push([]);
         for (let col = 0; col < mazeArray[0].length * 2 + 1; col++) {
+          const index = (row * mazeArray.length) + col;
           //draw wall and add it to array to keep track of it
-          const wall = new THREE.Mesh(geometry, materials);
-          wall.position.x = col * mazeWidth;
-          wall.position.z = row * mazeWidth;
-          wall.matrixAutoUpdate = false;
-          scene.add(wall);
-          wall.updateMatrix();
-          mazeVisualization[row].push(wall);
+          positionalObject.position.x = col * mazeWidth;
+          positionalObject.position.z = row * mazeWidth;
+          positionalObject.updateMatrix();
+          wallInstances.setMatrixAt(index, positionalObject.matrix);
+          mazeVisualization[row].push(wallInstances);
         }
       }
 
       //loop though walls and remove walls where a  parent vector is pointing to
       for (let row = 1; row < mazeArray.length * 2 + 1; row += 2) {
         for (let col = 1; col < mazeArray[0].length * 2 + 1; col += 2) {
+          let index = (row * mazeArray.length) + col;
           //remove cube
-          scene.remove(mazeVisualization[row][col]);
+          positionalObject.position.y = -10;
+          positionalObject.updateMatrix();
+          wallInstances.setMatrixAt(index, positionalObject.matrix);
           mazeVisualization[row][col] = null;
           //make path by erasing the walls at the parent vector
           let cell = mazeArray[(row - 1) / 2][(col - 1) / 2];
@@ -186,13 +191,16 @@ function Board(props) {
           //use math to convert parent cell into parentBlock
           const parentBlockRow = vectorTable.y[parentVector] + (row + 1) / 2;
           const parentBlockColumn = vectorTable.x[parentVector] + (col + 1) / 2;
+          index = (parentBlockRow * mazeArray.length) + parentBlockColumn;
           let parentBlock =
             mazeVisualization[parentBlockRow][parentBlockColumn];
-          scene.remove(parentBlock);
+          wallInstances.setMatrixAt((row * mazeArray.length) + col, positionalObject.matrix);
           //cant set parentBlock to null, since that wouldnt work due to references
           mazeVisualization[parentBlockRow][parentBlockColumn] = null;
         }
       }
+      wallInstances.instanceMatrix.needsUpdate = true;
+      scene.add(wallInstances)
       wallPositions = [];
       mazeVisualization
         .flat()
