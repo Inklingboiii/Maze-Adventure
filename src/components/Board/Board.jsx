@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { WEBGL } from 'three/examples/jsm/WebGL';
+import Stats from 'stats.js';
 import createMaze from './createMaze';
 import './Board.css';
 import wallMap from 'url:../../../public/assets/wallMap.jpg';
@@ -29,6 +30,7 @@ function Board(props) {
   let canvasNeedsResizing = true;
   let playerMoved = true;
   let canvasNeedsRerendering = true; //set gameloop variables to true for intial render
+  let stats;
 
   //initialize variables and data
   useEffect(() => {
@@ -39,11 +41,12 @@ function Board(props) {
     //scene
     scene = new THREE.Scene();
     //camera
-    camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 15);
     camera.position.z = 3;
     //renderer
     renderer = new THREE.WebGLRenderer({
-      canvas: boardReference.current
+      canvas: boardReference.current,
+      powerPreference: 'high-performance'
     });
     renderer.setSize(width, height, false);
 
@@ -53,6 +56,11 @@ function Board(props) {
     loader = new THREE.TextureLoader();
     //light
     addLight();
+
+    //stats
+    stats = new Stats();
+    stats.showPanel(0);
+    document.body.appendChild(stats.dom);
 
     function addLight() {
       const light = new THREE.DirectionalLight('#fff', 1);
@@ -185,7 +193,6 @@ function Board(props) {
           mazeVisualization[parentBlockRow][parentBlockColumn] = null;
         }
       }
-      console.log(mazeVisualization);
       wallPositions = [];
       mazeVisualization
         .flat()
@@ -199,7 +206,7 @@ function Board(props) {
       const playerHeight = 2;
       const playerWidth = 1;
 
-      const geometry = new THREE.BoxGeometry(
+      const geometry = new THREE.BoxBufferGeometry(
         playerWidth,
         playerHeight,
         playerWidth
@@ -223,6 +230,7 @@ function Board(props) {
   }
 
   function render() {
+    stats.begin();
     if (canvasNeedsResizing) {
       //resize canvas content (not canvas element since that resizes automatically) and camera if canvas size was changed
       width = boardReference.current.clientWidth;
@@ -234,27 +242,25 @@ function Board(props) {
         renderer.setSize(width, height, false); //sets size of canvas
         camera.aspect = width / height;
       }
-      canvasNeedsResizing = false;
+     canvasNeedsResizing = false;
     }
     //update camera
     camera.updateProjectionMatrix();
-    if(playerMoved) {
-      // set player position to camera position
+   if(playerMoved) {
+      //set player position to camera position
       player.position.set(
         camera.position.x,
         camera.position.y,
         camera.position.z
       );
-      playerMoved = false;
-    }
-    if(canvasNeedsRerendering) {
-    //rerender
-    console.time('render');
+     playerMoved = false;
+   }
+   if(canvasNeedsRerendering) {
     renderer.render(scene, camera);
-    console.timeEnd('render');
     canvasNeedsRerendering = false;
     }
     requestAnimationFrame(render);
+    stats.end();
   }
 
   function handleKeyDown(key) {
@@ -300,35 +306,18 @@ function Board(props) {
   }
 
   function playerColliding() {
-    console.time('player colliding');
     const playerX = Math.round(player.position.x);
     const playerZ = Math.round(player.position.z);
 
-    /*for(let z = playerZ - 1; z < playerZ + 1; z++) {
-     for(let x = playerX - 1; x < playerX + 1; x++) {
-       let wallPosition = wallPositions[z + x];
-       if(typeof wallPosition === 'undefined') {
-         continue;
-       }
-       if((playerX === wallPosition.x || playerX === wallPosition.x + 1)
-       && (playerZ === wallPosition.z || playerZ === wallPosition.z + 1)) {
-         console.log('hit');
-         console.timeEnd('player colliding');
-         return true;
-       }
-     }
-   }*/
     wallPositions.map((wallPosition) => {
       if (
         (playerX === wallPosition.x || playerX === wallPosition.x + 1) &&
         (playerZ === wallPosition.z || playerZ === wallPosition.z + 1)
       ) {
         console.log('hit');
-        console.timeEnd('player colliding');
         return true;
       }
     });
-    console.timeEnd('player colliding');
     return false;
   }
 
