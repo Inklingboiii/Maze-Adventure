@@ -22,14 +22,20 @@ function Board(props) {
   let renderer;
   let loader;
   let controls;
-  let speed;
+  let player;
+  let mazeHeight;
+  let mazeWidth;
+  let wallPositions;
+  let canvasNeedsResizing = true;
+  let playerMoved = true;
+  let canvasNeedsRerendering = true; //set gameloop variables to true for intial render
 
   //initialize variables and data
   useEffect(() => {
     checkIfWebGLIsAvailable();
     width = boardReference.current.clientWidth;
     height = boardReference.current.clientHeight;
-    speed = 0.1;
+    playerSpeed = 0.1;
     //scene
     scene = new THREE.Scene();
     //camera
@@ -65,9 +71,10 @@ function Board(props) {
 
   //draw objects and create maze
   function startGame() {
+    console.time('start game');
     //create maze
-    const mazeHeight = 5;
-    const mazeWidth = 2;
+    mazeHeight = 5;
+    mazeWidth = 2;
     let mazeArray = createMaze();
 
     //draw maze
@@ -76,10 +83,17 @@ function Board(props) {
     //draw floor
     drawFloor();
 
+    //add player
+    scene.add(createPlayer());
+    player.updateMatrix();
+    playerColliding();
+
     //enable controls
     togglePointerControls();
-
-    //render
+    //rerender when player moves
+    addRenderingEvents();
+    console.timeEnd('start game');
+    //initial render
     requestAnimationFrame(render);
 
     function drawFloor() {
@@ -94,13 +108,19 @@ function Board(props) {
         side: THREE.DoubleSide
       });
       const floor = new THREE.Mesh(geometry, material);
+      floor.matrixAutoUpdate = false;
       floor.rotation.x = Math.PI / 2;
       floor.position.set(numberOfColumns, -(mazeHeight / 2), numberOfRows); //put floor under walls
       scene.add(floor);
+      floor.updateMatrix();
     }
 
     function wallMaterials() {
-      const geometry = new THREE.BoxGeometry(mazeWidth, mazeHeight, mazeWidth);
+      const geometry = new THREE.BoxBufferGeometry(
+        mazeWidth,
+        mazeHeight,
+        mazeWidth
+      );
 
       //repeat textures for material so it doesn't stretch
       const texture = loader.load(wallMap);
@@ -134,7 +154,9 @@ function Board(props) {
           const wall = new THREE.Mesh(geometry, materials);
           wall.position.x = col * mazeWidth;
           wall.position.z = row * mazeWidth;
+          wall.matrixAutoUpdate = false;
           scene.add(wall);
+          wall.updateMatrix();
           mazeVisualization[row].push(wall);
         }
       }
@@ -163,48 +185,151 @@ function Board(props) {
           mazeVisualization[parentBlockRow][parentBlockColumn] = null;
         }
       }
+      console.log(mazeVisualization);
+      wallPositions = [];
+      mazeVisualization
+        .flat()
+        .filter((wall) => wall !== null)
+        .map((wall) => {
+          wallPositions.push(wall.position);
+        });
+    }
+
+    function createPlayer() {
+      const playerHeight = 2;
+      const playerWidth = 1;
+
+      const geometry = new THREE.BoxGeometry(
+        playerWidth,
+        playerHeight,
+        playerWidth
+      );
+      const material = new THREE.MeshBasicMaterial({ color: '#0f0' });
+      player = new THREE.Mesh(geometry, material);
+      player.speed = 0.1;
+      player.matrixAutoUpdate = false;
+      return player;
+    }
+
+    function addRenderingEvents() {
+      window.addEventListener('resize', () => {
+        canvasNeedsResizing = true;
+        canvasNeedsRerendering = true;
+      });
+      controls.addEventListener('change', () => {
+        canvasNeedsRerendering = true;
+      });
     }
   }
 
   function render() {
-    //resize canvas content (not canvas element since that resizes automatically) and camera if canvas size was changed
-    width = boardReference.current.clientWidth;
-    height = boardReference.current.clientHeight;
-    if (
-      boardReference.current.width !== width ||
-      boardReference.current.height !== height
-    ) {
-      renderer.setSize(width, height, false); //sets size of canvas
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+    if (canvasNeedsResizing) {
+      //resize canvas content (not canvas element since that resizes automatically) and camera if canvas size was changed
+      width = boardReference.current.clientWidth;
+      height = boardReference.current.clientHeight;
+      if (
+        boardReference.current.width !== width ||
+        boardReference.current.height !== height
+      ) {
+        renderer.setSize(width, height, false); //sets size of canvas
+        camera.aspect = width / height;
+      }
+      canvasNeedsResizing = false;
     }
+    //update camera
+    camera.updateProjectionMatrix();
+    if(playerMoved) {
+      // set player position to camera position
+      player.position.set(
+        camera.position.x,
+        camera.position.y,
+        camera.position.z
+      );
+      playerMoved = false;
+    }
+    if(canvasNeedsRerendering) {
+    //rerender
+    console.time('render');
     renderer.render(scene, camera);
-
+    console.timeEnd('render');
+    canvasNeedsRerendering = false;
+    }
     requestAnimationFrame(render);
   }
 
   function handleKeyDown(key) {
     switch (key.nativeEvent.code) {
       case up[0]:
-      case up[1]:
-        controls.moveForward(speed);
+      case up[1]: {
+        controls.moveForward(player.speed);
+        if (playerColliding()) {
+          controls.moveForward(-player.speed);
+        }
         break;
+      }
       case down[0]:
-      case down[1]:
-        controls.moveForward(-speed); //invert speed to move backwards
+      case down[1]: {
+        controls.moveForward(-player.speed); //invert speed to move backwards
+        if (playerColliding()) {
+          controls.moveForward(player.speed);
+        }
         break;
+      }
       case left[0]:
-      case left[1]:
-        controls.moveRight(-speed); //invert speed to move left
+      case left[1]: {
+        controls.moveRight(-player.speed); //invert speed to move left
+        if (playerColliding()) {
+          controls.moveRight(player.speed);
+        }
         break;
+      }
       case right[0]:
-      case right[1]:
-        controls.moveRight(speed);
+      case right[1]: {
+        controls.moveRight(player.speed);
+        if (playerColliding()) {
+          controls.moveRight(-player.speed);
+        }
         break;
+      }
       case 'Space':
         camera.position.y += 0.1;
     }
-    camera.updateProjectionMatrix();
+    player.updateMatrix();
+    playerMoved = true;
+    canvasNeedsRerendering = true;
+  }
+
+  function playerColliding() {
+    console.time('player colliding');
+    const playerX = Math.round(player.position.x);
+    const playerZ = Math.round(player.position.z);
+
+    /*for(let z = playerZ - 1; z < playerZ + 1; z++) {
+     for(let x = playerX - 1; x < playerX + 1; x++) {
+       let wallPosition = wallPositions[z + x];
+       if(typeof wallPosition === 'undefined') {
+         continue;
+       }
+       if((playerX === wallPosition.x || playerX === wallPosition.x + 1)
+       && (playerZ === wallPosition.z || playerZ === wallPosition.z + 1)) {
+         console.log('hit');
+         console.timeEnd('player colliding');
+         return true;
+       }
+     }
+   }*/
+    wallPositions.map((wallPosition) => {
+      if (
+        (playerX === wallPosition.x || playerX === wallPosition.x + 1) &&
+        (playerZ === wallPosition.z || playerZ === wallPosition.z + 1)
+      ) {
+        console.log('hit');
+        console.timeEnd('player colliding');
+        return true;
+      }
+    });
+    console.timeEnd('player colliding');
+    return false;
   }
 
   function togglePointerControls() {
