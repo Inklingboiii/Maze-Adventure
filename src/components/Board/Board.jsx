@@ -7,6 +7,7 @@ import createMaze from './createMaze';
 import './Board.css';
 import wallMap from 'url:../../../public/assets/wallMap.jpg';
 import wallNormalMap from 'url:../../../public/assets/wallNormalMap.png';
+import { Matrix4 } from 'three';
 
 function Board(props) {
   const boardReference = useRef();
@@ -94,7 +95,6 @@ function Board(props) {
     //add player
     scene.add(createPlayer());
     player.updateMatrix();
-    playerColliding();
 
     //enable controls
     togglePointerControls();
@@ -157,24 +157,25 @@ function Board(props) {
       const [geometry, materials] = wallMaterials();
       const wallInstances = new THREE.InstancedMesh(geometry, materials, (mazeArray.length * 2 + 1) * (mazeArray[0].length * 2 + 1));
       const positionalObject = new THREE.Object3D();
+      positionalObject.matrixAutoUpdate = false;
       //draw initial walls around each cube and then remove them later on with parent vector
       for (let row = 0; row < mazeArray.length * 2 + 1; row++) {
         mazeVisualization.push([]);
         for (let col = 0; col < mazeArray[0].length * 2 + 1; col++) {
-          const index = (row * mazeArray.length) + col;
+          const index = (row * (mazeArray.length * 2 + 1)) + col;
           //draw wall and add it to array to keep track of it
           positionalObject.position.x = col * mazeWidth;
           positionalObject.position.z = row * mazeWidth;
           positionalObject.updateMatrix();
           wallInstances.setMatrixAt(index, positionalObject.matrix);
-          mazeVisualization[row].push(wallInstances);
+          mazeVisualization[row].push(positionalObject.clone(false));
         }
       }
 
       //loop though walls and remove walls where a  parent vector is pointing to
       for (let row = 1; row < mazeArray.length * 2 + 1; row += 2) {
         for (let col = 1; col < mazeArray[0].length * 2 + 1; col += 2) {
-          let index = (row * mazeArray.length) + col;
+          let index = (row * (mazeArray.length * 2 + 1)) + col;
           //remove cube
           positionalObject.position.y = -10;
           positionalObject.updateMatrix();
@@ -191,16 +192,15 @@ function Board(props) {
           //use math to convert parent cell into parentBlock
           const parentBlockRow = vectorTable.y[parentVector] + (row + 1) / 2;
           const parentBlockColumn = vectorTable.x[parentVector] + (col + 1) / 2;
-          index = (parentBlockRow * mazeArray.length) + parentBlockColumn;
-          let parentBlock =
-            mazeVisualization[parentBlockRow][parentBlockColumn];
-          wallInstances.setMatrixAt((row * mazeArray.length) + col, positionalObject.matrix);
+          index = (parentBlockRow * (mazeArray.length * 2 + 1)) + parentBlockColumn;
+          wallInstances.setMatrixAt(index, positionalObject.matrix);
           //cant set parentBlock to null, since that wouldnt work due to references
           mazeVisualization[parentBlockRow][parentBlockColumn] = null;
         }
       }
       wallInstances.instanceMatrix.needsUpdate = true;
-      scene.add(wallInstances)
+      scene.add(wallInstances);
+      console.log(mazeVisualization)
       wallPositions = [];
       mazeVisualization
         .flat()
