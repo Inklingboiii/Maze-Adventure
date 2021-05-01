@@ -7,7 +7,7 @@ import createMaze from './createMaze';
 import './Board.css';
 import wallMap from 'url:../../../public/assets/wallMap.jpg';
 import wallNormalMap from 'url:../../../public/assets/wallNormalMap.png';
-import { Matrix4 } from 'three';
+import { BoxGeometry, Matrix4 } from 'three';
 
 function Board(props) {
   const boardReference = useRef();
@@ -27,7 +27,8 @@ function Board(props) {
   let player;
   let mazeHeight;
   let mazeWidth;
-  let wallPositions;
+  let wallsBoundingBox = [];
+  let emptyFields = [];
   let canvasNeedsResizing = true;
   let playerMoved = true;
   let canvasNeedsRerendering = true; //set gameloop variables to true for intial render
@@ -42,7 +43,7 @@ function Board(props) {
     //scene
     scene = new THREE.Scene();
     //camera
-    camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 15);
+    camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 30);
     camera.position.z = 3;
     //renderer
     renderer = new THREE.WebGLRenderer({
@@ -93,7 +94,8 @@ function Board(props) {
     drawFloor();
 
     //add player
-    scene.add(createPlayer());
+    createPlayer();
+    scene.add(player);
     player.updateMatrix();
 
     //enable controls
@@ -105,22 +107,23 @@ function Board(props) {
     requestAnimationFrame(render);
 
     function drawFloor() {
-      const numberOfRows = mazeArray.length;
-      const numberOfColumns = mazeArray[0].length;
+      const width = (mazeArray.length * 2 + 1) * mazeWidth; //number of rows times width of rows
+      const height = (mazeArray[0].length * 2 + 1) * mazeWidth; // number of columns times width of columns
       const geometry = new THREE.PlaneGeometry(
-        numberOfColumns * 2,
-        numberOfRows * 2
+       height,
+       width
       );
-      const material = new THREE.MeshPhongMaterial({
+      const material = new THREE.MeshBasicMaterial({
         color: '#f00',
         side: THREE.DoubleSide
       });
       const floor = new THREE.Mesh(geometry, material);
       floor.matrixAutoUpdate = false;
       floor.rotation.x = Math.PI / 2;
-      floor.position.set(numberOfColumns, -(mazeHeight / 2), numberOfRows); //put floor under walls
+      floor.position.set(width / 2, -(mazeHeight / 2), height / 2); //put floor in the middle of the walls in al axisses
       scene.add(floor);
       floor.updateMatrix();
+      console.log('floor', floor)
     }
 
     function wallMaterials() {
@@ -156,19 +159,23 @@ function Board(props) {
       //maze materials
       const [geometry, materials] = wallMaterials();
       const wallInstances = new THREE.InstancedMesh(geometry, materials, (mazeArray.length * 2 + 1) * (mazeArray[0].length * 2 + 1));
-      const positionalObject = new THREE.Object3D();
-      positionalObject.matrixAutoUpdate = false;
+      
       //draw initial walls around each cube and then remove them later on with parent vector
       for (let row = 0; row < mazeArray.length * 2 + 1; row++) {
         mazeVisualization.push([]);
         for (let col = 0; col < mazeArray[0].length * 2 + 1; col++) {
           const index = (row * (mazeArray.length * 2 + 1)) + col;
           //draw wall and add it to array to keep track of it
+          const positionalObject = new THREE.Object3D();
+          positionalObject.geometry = geometry;
           positionalObject.position.x = col * mazeWidth;
           positionalObject.position.z = row * mazeWidth;
           positionalObject.updateMatrix();
+          const wallBoundingBox = new THREE.Box3();
+          wallBoundingBox.setFromObject(positionalObject);
+
           wallInstances.setMatrixAt(index, positionalObject.matrix);
-          mazeVisualization[row].push(positionalObject.clone(false));
+          mazeVisualization[row].push(wallBoundingBox);
         }
       }
 
@@ -176,11 +183,18 @@ function Board(props) {
       for (let row = 1; row < mazeArray.length * 2 + 1; row += 2) {
         for (let col = 1; col < mazeArray[0].length * 2 + 1; col += 2) {
           let index = (row * (mazeArray.length * 2 + 1)) + col;
+          let positionalObject = new THREE.Object3D();
+          positionalObject.geometry = geometry;
           //remove cube
           positionalObject.position.y = -10;
+          positionalObject.position.x = col * mazeWidth;
+          positionalObject.position.z = row * mazeWidth;
           positionalObject.updateMatrix();
           wallInstances.setMatrixAt(index, positionalObject.matrix);
+         // scene.add(new THREE.Box3Helper(mazeVisualization[row][col], 'orange'))
           mazeVisualization[row][col] = null;
+          //add removed wall to array of empty fields for player spawning
+          emptyFields.push(positionalObject);
           //make path by erasing the walls at the parent vector
           let cell = mazeArray[(row - 1) / 2][(col - 1) / 2];
           const parentVector = cell.connectVector;
@@ -193,37 +207,42 @@ function Board(props) {
           const parentBlockRow = vectorTable.y[parentVector] + (row + 1) / 2;
           const parentBlockColumn = vectorTable.x[parentVector] + (col + 1) / 2;
           index = (parentBlockRow * (mazeArray.length * 2 + 1)) + parentBlockColumn;
+          positionalObject.x = parentBlockColumn * mazeWidth;
+          positionalObject.z = parentBlockRow * mazeWidth;
           wallInstances.setMatrixAt(index, positionalObject.matrix);
-          //cant set parentBlock to null, since that wouldnt work due to references
+          //cant set parentBlock to null, since that wouldnt work due to reference
+         // scene.add(new THREE.Box3Helper(mazeVisualization[parentBlockRow][parentBlockColumn], 'orange'));
           mazeVisualization[parentBlockRow][parentBlockColumn] = null;
+          emptyFields.push(positionalObject)
         }
       }
       wallInstances.instanceMatrix.needsUpdate = true;
       scene.add(wallInstances);
-      console.log(mazeVisualization)
-      wallPositions = [];
-      mazeVisualization
-        .flat()
-        .filter((wall) => wall !== null)
-        .map((wall) => {
-          wallPositions.push(wall.position);
-        });
+      console.log('maze visualization', mazeVisualization);
+
+      wallsBoundingBox = mazeVisualization.flat().filter((wallBoundingBox) => wallBoundingBox !== null);
+        console.log('wallsbounding box', wallsBoundingBox);
     }
 
     function createPlayer() {
       const playerHeight = 2;
       const playerWidth = 1;
 
-      const geometry = new THREE.BoxBufferGeometry(
+      const geometry = new THREE.BoxGeometry(
         playerWidth,
         playerHeight,
         playerWidth
       );
       const material = new THREE.MeshBasicMaterial({ color: '#0f0' });
       player = new THREE.Mesh(geometry, material);
+      let randomPosition = emptyFields[Math.floor(Math.random() * emptyFields.length)].position;
+      player.position.x = randomPosition.x;
+      player.position.z = randomPosition.z;
+      camera.position.x = player.position.x;
+      camera.position.z = player.position.z;
       player.speed = 0.1;
       player.matrixAutoUpdate = false;
-      return player;
+      console.log(randomPosition, emptyFields)
     }
 
     function addRenderingEvents() {
@@ -276,7 +295,9 @@ function Board(props) {
       case up[0]:
       case up[1]: {
         controls.moveForward(player.speed);
+
         if (playerColliding()) {
+          console.log('moved backwards')
           controls.moveForward(-player.speed);
         }
         break;
@@ -285,6 +306,7 @@ function Board(props) {
       case down[1]: {
         controls.moveForward(-player.speed); //invert speed to move backwards
         if (playerColliding()) {
+          console.log('moved backwards')
           controls.moveForward(player.speed);
         }
         break;
@@ -293,6 +315,7 @@ function Board(props) {
       case left[1]: {
         controls.moveRight(-player.speed); //invert speed to move left
         if (playerColliding()) {
+          console.log('moved backwards')
           controls.moveRight(player.speed);
         }
         break;
@@ -301,6 +324,7 @@ function Board(props) {
       case right[1]: {
         controls.moveRight(player.speed);
         if (playerColliding()) {
+          console.log('moved backwards')
           controls.moveRight(-player.speed);
         }
         break;
@@ -314,19 +338,23 @@ function Board(props) {
   }
 
   function playerColliding() {
-    const playerX = Math.round(player.position.x);
-    const playerZ = Math.round(player.position.z);
+    let didPlayerCollide = false;
+    let playerBoundingBox = new THREE.Box3().setFromObject(player);
+    const playerBoxHelper = new THREE.Box3Helper(playerBoundingBox, 0x00ff00);
+    scene.add(playerBoxHelper);
 
-    wallPositions.map((wallPosition) => {
-      if (
-        (playerX === wallPosition.x || playerX === wallPosition.x + 1) &&
-        (playerZ === wallPosition.z || playerZ === wallPosition.z + 1)
-      ) {
+    wallsBoundingBox.map((wallBoundingBox) => {
+     // scene.add(new THREE.Box3Helper(wallBoundingBox, 'white'));
+      if(wallBoundingBox.intersectsBox(playerBoundingBox)) {
+        let wallBoxHelper = new THREE.Box3Helper(wallBoundingBox, 0x0000ff);
+        scene.add(wallBoxHelper)
+        didPlayerCollide = true;
         console.log('hit');
-        return true;
-      }
+       console.table(playerBoundingBox);
+       console.table(wallBoundingBox);
+      } 
     });
-    return false;
+    return didPlayerCollide
   }
 
   function togglePointerControls() {
