@@ -39,12 +39,10 @@ function Board(props) {
     checkIfWebGLIsAvailable();
     width = boardReference.current.clientWidth;
     height = boardReference.current.clientHeight;
-    playerSpeed = 0.1;
     //scene
     scene = new THREE.Scene();
     //camera
-    camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 30);
-    camera.position.z = 3;
+    camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 30);
     //renderer
     renderer = new THREE.WebGLRenderer({
       canvas: boardReference.current,
@@ -225,8 +223,8 @@ function Board(props) {
     }
 
     function createPlayer() {
-      const playerHeight = 2;
-      const playerWidth = 1;
+      const playerHeight = mazeHeight;
+      const playerWidth = mazeWidth / 3;
 
       const geometry = new THREE.BoxGeometry(
         playerWidth,
@@ -295,7 +293,8 @@ function Board(props) {
       case up[0]:
       case up[1]: {
         controls.moveForward(player.speed);
-
+        player.position.x = camera.position.x;
+        player.position.z = camera.position.z;
         if (playerColliding()) {
           console.log('moved backwards')
           controls.moveForward(-player.speed);
@@ -305,27 +304,65 @@ function Board(props) {
       case down[0]:
       case down[1]: {
         controls.moveForward(-player.speed); //invert speed to move backwards
+        player.position.x = camera.position.x;
+        player.position.z = camera.position.z;
         if (playerColliding()) {
           console.log('moved backwards')
           controls.moveForward(player.speed);
+          player.position.x = camera.position.x;
+          player.position.z = camera.position.z;
         }
         break;
       }
       case left[0]:
       case left[1]: {
         controls.moveRight(-player.speed); //invert speed to move left
+        player.position.x = camera.position.x;
+        player.position.z = camera.position.z;
+        if (playerColliding()) {
+          console.log('moved backwards')
+          controls.moveForward(player.speed);
+          player.position.x = camera.position.x;
+          player.position.z = camera.position.z;
+        }
+        break;
+      }
+      case left[0]:
+      case left[1]: {
+        controls.moveRight(-player.speed); //invert speed to move left
+        player.position.x = camera.position.x;
+        player.position.z = camera.position.z;
         if (playerColliding()) {
           console.log('moved backwards')
           controls.moveRight(player.speed);
+          player.position.x = camera.position.x;
+          player.position.z = camera.position.z;
         }
         break;
       }
       case right[0]:
       case right[1]: {
         controls.moveRight(player.speed);
+          player.position.x = camera.position.x;
+          player.position.z = camera.position.z;
+        if (playerColliding()) {
+          console.log('moved backwards')
+          controls.moveRight(player.speed);
+          player.position.x = camera.position.x;
+          player.position.z = camera.position.z;
+        }
+        break;
+      }
+      case right[0]:
+      case right[1]: {
+        controls.moveRight(player.speed);
+          player.position.x = camera.position.x;
+          player.position.z = camera.position.z;
         if (playerColliding()) {
           console.log('moved backwards')
           controls.moveRight(-player.speed);
+          player.position.x = camera.position.x;
+          player.position.z = camera.position.z;
         }
         break;
       }
