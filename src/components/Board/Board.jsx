@@ -291,81 +291,21 @@ function Board(props) {
   function handleKeyDown(key) {
     switch (key.nativeEvent.code) {
       case up[0]:
-      case up[1]: {
-        controls.moveForward(player.speed);
-        player.position.x = camera.position.x;
-        player.position.z = camera.position.z;
-        if (playerColliding()) {
-          console.log('moved backwards')
-          controls.moveForward(-player.speed);
-        }
+      case up[1]:
+        movePlayer(controls.moveForward, player.speed);
         break;
-      }
       case down[0]:
-      case down[1]: {
-        controls.moveForward(-player.speed); //invert speed to move backwards
-        player.position.x = camera.position.x;
-        player.position.z = camera.position.z;
-        if (playerColliding()) {
-          console.log('moved backwards')
-          controls.moveForward(player.speed);
-          player.position.x = camera.position.x;
-          player.position.z = camera.position.z;
-        }
+      case down[1]:
+        movePlayer(controls.moveForward, -player.speed);
         break;
-      }
       case left[0]:
-      case left[1]: {
-        controls.moveRight(-player.speed); //invert speed to move left
-        player.position.x = camera.position.x;
-        player.position.z = camera.position.z;
-        if (playerColliding()) {
-          console.log('moved backwards')
-          controls.moveForward(player.speed);
-          player.position.x = camera.position.x;
-          player.position.z = camera.position.z;
-        }
+      case left[1]: 
+        movePlayer(controls.moveRight, -player.speed);
         break;
-      }
-      case left[0]:
-      case left[1]: {
-        controls.moveRight(-player.speed); //invert speed to move left
-        player.position.x = camera.position.x;
-        player.position.z = camera.position.z;
-        if (playerColliding()) {
-          console.log('moved backwards')
-          controls.moveRight(player.speed);
-          player.position.x = camera.position.x;
-          player.position.z = camera.position.z;
-        }
-        break;
-      }
       case right[0]:
-      case right[1]: {
-        controls.moveRight(player.speed);
-          player.position.x = camera.position.x;
-          player.position.z = camera.position.z;
-        if (playerColliding()) {
-          console.log('moved backwards')
-          controls.moveRight(player.speed);
-          player.position.x = camera.position.x;
-          player.position.z = camera.position.z;
-        }
+      case right[1]:
+        movePlayer(controls.moveRight, player.speed);
         break;
-      }
-      case right[0]:
-      case right[1]: {
-        controls.moveRight(player.speed);
-          player.position.x = camera.position.x;
-          player.position.z = camera.position.z;
-        if (playerColliding()) {
-          console.log('moved backwards')
-          controls.moveRight(-player.speed);
-          player.position.x = camera.position.x;
-          player.position.z = camera.position.z;
-        }
-        break;
-      }
       case 'Space':
         camera.position.y += 0.1;
     }
@@ -376,22 +316,38 @@ function Board(props) {
 
   function playerColliding() {
     let didPlayerCollide = false;
+    player.updateMatrix();
     let playerBoundingBox = new THREE.Box3().setFromObject(player);
     const playerBoxHelper = new THREE.Box3Helper(playerBoundingBox, 0x00ff00);
     scene.add(playerBoxHelper);
 
     wallsBoundingBox.map((wallBoundingBox) => {
-     // scene.add(new THREE.Box3Helper(wallBoundingBox, 'white'));
       if(wallBoundingBox.intersectsBox(playerBoundingBox)) {
         let wallBoxHelper = new THREE.Box3Helper(wallBoundingBox, 0x0000ff);
         scene.add(wallBoxHelper)
         didPlayerCollide = true;
-        console.log('hit');
-       console.table(playerBoundingBox);
-       console.table(wallBoundingBox);
+        console.log('hit', {...player.position});
+        console.table(playerBoundingBox);
       } 
     });
     return didPlayerCollide
+  }
+
+  function movePlayer(movementFunction, playerSpeed) {
+    console.log('--------------------------')
+    let cameraPositionCopy = camera.position.clone();
+    console.log('pre movement player position', {...player.position});
+    movementFunction(playerSpeed);
+    //update player position after moving camera
+    player.position.copy(camera.position);
+    console.log('after movement player position', {...player.position});
+    //reverse camera movement if it collides with a wall
+    if(playerColliding()) {
+      camera.position.copy(cameraPositionCopy);
+      player.position.copy(cameraPositionCopy);
+      console.log('reversed player position', {...player.position});
+      console.log('player colliding after position reverse', playerColliding())
+    }
   }
 
   function togglePointerControls() {
