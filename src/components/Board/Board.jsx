@@ -30,7 +30,6 @@ function Board(props) {
   let wallsBoundingBox = [];
   let emptyFields = [];
   let canvasNeedsResizing = true;
-  let playerMoved = true;
   let canvasNeedsRerendering = true; //set gameloop variables to true for intial render
   let stats;
 
@@ -121,7 +120,6 @@ function Board(props) {
       floor.position.set(width / 2, -(mazeHeight / 2), height / 2); //put floor in the middle of the walls in al axisses
       scene.add(floor);
       floor.updateMatrix();
-      console.log('floor', floor)
     }
 
     function wallMaterials() {
@@ -148,7 +146,6 @@ function Board(props) {
         new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap }),
         new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap })
       ];
-      console.log(new THREE.InstancedMesh(geometry, materials, 10))
       return [geometry, materials];
     }
 
@@ -166,8 +163,7 @@ function Board(props) {
           //draw wall and add it to array to keep track of it
           const positionalObject = new THREE.Object3D();
           positionalObject.geometry = geometry;
-          positionalObject.position.x = col * mazeWidth;
-          positionalObject.position.z = row * mazeWidth;
+          positionalObject.position.set(col * mazeWidth, positionalObject.position.y, row * mazeWidth);
           positionalObject.updateMatrix();
           const wallBoundingBox = new THREE.Box3();
           wallBoundingBox.setFromObject(positionalObject);
@@ -184,12 +180,9 @@ function Board(props) {
           let positionalObject = new THREE.Object3D();
           positionalObject.geometry = geometry;
           //remove cube
-          positionalObject.position.y = -10;
-          positionalObject.position.x = col * mazeWidth;
-          positionalObject.position.z = row * mazeWidth;
+          positionalObject.position.set(col * mazeWidth, -10, row * mazeWidth);
           positionalObject.updateMatrix();
           wallInstances.setMatrixAt(index, positionalObject.matrix);
-         // scene.add(new THREE.Box3Helper(mazeVisualization[row][col], 'orange'))
           mazeVisualization[row][col] = null;
           //add removed wall to array of empty fields for player spawning
           emptyFields.push(positionalObject);
@@ -208,8 +201,6 @@ function Board(props) {
           positionalObject.x = parentBlockColumn * mazeWidth;
           positionalObject.z = parentBlockRow * mazeWidth;
           wallInstances.setMatrixAt(index, positionalObject.matrix);
-          //cant set parentBlock to null, since that wouldnt work due to reference
-         // scene.add(new THREE.Box3Helper(mazeVisualization[parentBlockRow][parentBlockColumn], 'orange'));
           mazeVisualization[parentBlockRow][parentBlockColumn] = null;
           emptyFields.push(positionalObject)
         }
@@ -219,7 +210,6 @@ function Board(props) {
       console.log('maze visualization', mazeVisualization);
 
       wallsBoundingBox = mazeVisualization.flat().filter((wallBoundingBox) => wallBoundingBox !== null);
-        console.log('wallsbounding box', wallsBoundingBox);
     }
 
     function createPlayer() {
@@ -234,13 +224,10 @@ function Board(props) {
       const material = new THREE.MeshBasicMaterial({ color: '#0f0' });
       player = new THREE.Mesh(geometry, material);
       let randomPosition = emptyFields[Math.floor(Math.random() * emptyFields.length)].position;
-      player.position.x = randomPosition.x;
-      player.position.z = randomPosition.z;
-      camera.position.x = player.position.x;
-      camera.position.z = player.position.z;
+      player.position.set(randomPosition.x, player.position.y, randomPosition.z);
+      camera.position.copy(player.position);
       player.speed = 0.1;
       player.matrixAutoUpdate = false;
-      console.log(randomPosition, emptyFields)
     }
 
     function addRenderingEvents() {
@@ -271,15 +258,7 @@ function Board(props) {
     }
     //update camera
     camera.updateProjectionMatrix();
-   if(playerMoved) {
-      //set player position to camera position
-      player.position.set(
-        camera.position.x,
-        camera.position.y,
-        camera.position.z
-      );
-     playerMoved = false;
-   }
+
    if(canvasNeedsRerendering) {
     renderer.render(scene, camera);
     canvasNeedsRerendering = false;
@@ -309,44 +288,30 @@ function Board(props) {
       case 'Space':
         camera.position.y += 0.1;
     }
-    player.updateMatrix();
-    playerMoved = true;
     canvasNeedsRerendering = true;
   }
 
   function playerColliding() {
-    let didPlayerCollide = false;
     player.updateMatrix();
     let playerBoundingBox = new THREE.Box3().setFromObject(player);
-    const playerBoxHelper = new THREE.Box3Helper(playerBoundingBox, 0x00ff00);
-    scene.add(playerBoxHelper);
 
-    wallsBoundingBox.map((wallBoundingBox) => {
-      if(wallBoundingBox.intersectsBox(playerBoundingBox)) {
-        let wallBoxHelper = new THREE.Box3Helper(wallBoundingBox, 0x0000ff);
-        scene.add(wallBoxHelper)
-        didPlayerCollide = true;
-        console.log('hit', {...player.position});
-        console.table(playerBoundingBox);
-      } 
-    });
-    return didPlayerCollide
+    for(let i = 0; i < wallsBoundingBox.length; i++) {
+      if(playerBoundingBox.intersectsBox(wallsBoundingBox[i])) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function movePlayer(movementFunction, playerSpeed) {
-    console.log('--------------------------')
     let cameraPositionCopy = camera.position.clone();
-    console.log('pre movement player position', {...player.position});
     movementFunction(playerSpeed);
     //update player position after moving camera
     player.position.copy(camera.position);
-    console.log('after movement player position', {...player.position});
     //reverse camera movement if it collides with a wall
     if(playerColliding()) {
       camera.position.copy(cameraPositionCopy);
       player.position.copy(cameraPositionCopy);
-      console.log('reversed player position', {...player.position});
-      console.log('player colliding after position reverse', playerColliding())
     }
   }
 
