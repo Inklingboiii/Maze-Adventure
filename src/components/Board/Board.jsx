@@ -110,7 +110,7 @@ function Board() {
 				height,
 				width
 			);
-			const material = new THREE.MeshBasicMaterial({
+			const material = new THREE.MeshPhongMaterial({
 				color: '#f00',
 				side: THREE.DoubleSide
 			});
@@ -142,12 +142,12 @@ function Board() {
 			const normalMap = loader.load(wallNormalMap);
 			//don't add texture and map to top and bottom since player wouldn't see it
 			let materials = [
-				new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap }),
-				new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap }),
-				new THREE.MeshBasicMaterial(),
-				new THREE.MeshBasicMaterial(),
-				new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap }),
-				new THREE.MeshBasicMaterial({ map: texture, normalMap: normalMap })
+				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap }),
+				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap }),
+				new THREE.MeshPhongMaterial(),
+				new THREE.MeshPhongMaterial(),
+				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap }),
+				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap })
 			];
 			return [geometry, materials];
 		}
@@ -209,6 +209,7 @@ function Board() {
 				}
 			}
 			wallInstances.instanceMatrix.needsUpdate = true;
+			wallInstances.material.needsUpdate = true;
 			scene.add(wallInstances);
 			console.log('maze visualization', mazeVisualization);
 
