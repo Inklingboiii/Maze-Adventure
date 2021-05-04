@@ -35,7 +35,6 @@ function Board() {
 	//initialize variables and data
 	useEffect(() => {
 		checkIfWebGLIsAvailable();
-		boardReference.current.focus();
 		width = boardReference.current.clientWidth;
 		height = boardReference.current.clientHeight;
 		//scene
@@ -51,6 +50,7 @@ function Board() {
 
 		//controls
 		controls = new PointerLockControls(camera, boardReference.current);
+		document.addEventListener('keydown', handleKeyDown);
 		//loader
 		loader = new THREE.TextureLoader();
 		//light
@@ -326,10 +326,8 @@ function Board() {
 	return (
 		<div className={'boardContainer'}>
 			<canvas
-				tabIndex={0}
 				className={'boardContainer__board'}
 				ref={boardReference}
-				onKeyDown={handleKeyDown}
 			></canvas>
 			<button className={'btn boardContainer__btn--start'} onClick={startGame}>
         Click To Start
