@@ -130,7 +130,10 @@ function Board() {
 			);
 
 			//repeat textures for material so it doesn't stretch
-			const texture = loader.load(wallMap);
+			const texture = loader.load(wallMap, () => {
+				// rerender after textures loaded
+				canvasNeedsRerendering = true;
+			});
 			texture.wrapS = THREE.RepeatWrapping;
 			texture.wrapT = THREE.RepeatWrapping;
 			texture.repeat.set(mazeWidth, mazeHeight);
@@ -260,6 +263,7 @@ function Board() {
 		camera.updateProjectionMatrix();
 
 		if(canvasNeedsRerendering) {
+			console.log('rendered');
 			renderer.render(scene, camera);
 			canvasNeedsRerendering = false;
 		}
@@ -268,7 +272,6 @@ function Board() {
 	}
 
 	function handleKeyDown(key) {
-		console.log('moved');
 		switch (key.code) {
 		case up[0]:
 		case up[1]:
