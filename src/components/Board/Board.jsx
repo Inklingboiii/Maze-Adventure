@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { WEBGL } from 'three/examples/jsm/WebGL';
@@ -7,6 +7,7 @@ import createMaze from './createMaze';
 import './Board.css';
 import wallMap from 'url:../../../public/assets/wallMap.jpg';
 import wallNormalMap from 'url:../../../public/assets/wallNormalMap.png';
+import ProgressBar from './ProgressBar/ProgressBar';
 
 function Board() {
 	const boardReference = useRef();
@@ -15,7 +16,8 @@ function Board() {
 	const down = ['KeyS', 'ArrowDown'];
 	const left = ['KeyA', 'ArrowLeft'];
 	const right = ['KeyD', 'ArrowRight'];
-
+	const [isLoading, isLoadingSetter] = useState(false);
+	const [loadingProgress, loadingProgressSetter] = useState(0);
 	let width;
 	let height;
 	let scene;
@@ -62,7 +64,7 @@ function Board() {
 		document.body.appendChild(stats.dom);
 
 		function addLight() {
-			const light = new THREE.DirectionalLight('#fff', 1);
+			const light = new THREE.PointLight('#fff', 1);
 			light.target = camera;
 			scene.add(light);
 		}
@@ -79,17 +81,18 @@ function Board() {
 	//draw objects and create maze
 	function startGame() {
 		console.time('start game');
+		isLoadingSetter(true);
 		//create maze
 		mazeHeight = 5;
 		mazeWidth = 2;
 		let mazeArray = createMaze();
-
+		loadingProgressSetter(() => 30);
 		//draw maze
 		drawMaze();
 
 		//draw floor
 		drawFloor();
-
+		loadingProgressSetter(() => 60);
 		//add player
 		createPlayer();
 		scene.add(player);
@@ -101,6 +104,8 @@ function Board() {
 		addRenderingEvents();
 		console.timeEnd('start game');
 		//initial render
+		loadingProgressSetter(() => 100);
+		isLoadingSetter(false);
 		requestAnimationFrame(render);
 
 		function drawFloor() {
@@ -145,6 +150,7 @@ function Board() {
 							material.map = texture;
 						}
 					});
+					// compare index so texture doesnt get added to bottom and top
 				} else {
 					materials.map((material) => {
 						if(index !== 2 || index !== 3) {
@@ -153,31 +159,6 @@ function Board() {
 					});
 				}
 			});
-			/*//repeat textures for material so it doesn't stretch
-			const texture = loader.load(wallMap, () => {
-				// rerender after textures loaded
-				canvasNeedsRerendering = true;
-			});
-			texture.wrapS = THREE.RepeatWrapping;
-			texture.wrapT = THREE.RepeatWrapping;
-			texture.repeat.set(mazeWidth, mazeHeight);
-
-			//normal map
-			const normalMap = loader.load(wallNormalMap, () => {
-				canvasNeedsRerendering = true;
-			});
-			normalMap.wrapS = THREE.RepeatWrapping;
-			normalMap.wrapT = THREE.RepeatWrapping;
-			texture.repeat.set(mazeWidth, mazeHeight);*/
-			//don't add texture and map to top and bottom since player wouldn't see it
-			/*let materials = [
-				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap }),
-				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap }),
-				new THREE.MeshPhongMaterial(),
-				new THREE.MeshPhongMaterial(),
-				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap }),
-				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap })
-			];*/
 			return [geometry, materials];
 		}
 
@@ -364,6 +345,7 @@ function Board() {
 			<button className={'btn boardContainer__btn--start'} onClick={startGame}>
         Click To Start
 			</button>
+			<ProgressBar progress={loadingProgress} isLoading={isLoading}/>
 		</div>
 	);
 }
