@@ -40,7 +40,7 @@ function Board() {
 		//scene
 		scene = new THREE.Scene();
 		//camera
-		camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 75);
+		camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 30);
 		//renderer
 		renderer = new THREE.WebGLRenderer({
 			canvas: boardReference.current,
@@ -128,32 +128,8 @@ function Board() {
 				mazeHeight,
 				mazeWidth
 			);
-			let materials = [];
-			for(let i = 0; i < 6; i++) {
-				materials.push(new THREE.MeshPhongMaterial());
-			}
-			[wallMap, wallNormalMap].map((map, index) => {
-				const texture = loader.load(map, () => {
-					canvasNeedsRerendering = true;
-				});
-				texture.wrapS = THREE.RepeatWrapping;
-				texture.wrapT = THREE.RepeatWrapping;
-				texture.repeat.set(mazeWidth, mazeHeight);
-				if(index === 0) {
-					materials.map((material, index) => {
-						if(index !== 2 || index !== 3) {
-							material.map = texture;
-						}
-					});
-				} else {
-					materials.map((material) => {
-						if(index !== 2 || index !== 3) {
-							material.normalMap = texture;
-						}
-					});
-				}
-			});
-			/*//repeat textures for material so it doesn't stretch
+
+			//repeat textures for material so it doesn't stretch
 			const texture = loader.load(wallMap, () => {
 				// rerender after textures loaded
 				canvasNeedsRerendering = true;
@@ -163,21 +139,16 @@ function Board() {
 			texture.repeat.set(mazeWidth, mazeHeight);
 
 			//normal map
-			const normalMap = loader.load(wallNormalMap, () => {
-				canvasNeedsRerendering = true;
-			});
-			normalMap.wrapS = THREE.RepeatWrapping;
-			normalMap.wrapT = THREE.RepeatWrapping;
-			texture.repeat.set(mazeWidth, mazeHeight);*/
+			const normalMap = loader.load(wallNormalMap);
 			//don't add texture and map to top and bottom since player wouldn't see it
-			/*let materials = [
+			let materials = [
 				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap }),
 				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap }),
 				new THREE.MeshPhongMaterial(),
 				new THREE.MeshPhongMaterial(),
 				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap }),
 				new THREE.MeshPhongMaterial({ map: texture, normalMap: normalMap })
-			];*/
+			];
 			return [geometry, materials];
 		}
 
@@ -254,7 +225,7 @@ function Board() {
 				playerHeight,
 				playerWidth
 			);
-			const material = new THREE.MeshPhongMaterial({ color: '#0f0' });
+			const material = new THREE.MeshBasicMaterial({ color: '#0f0' });
 			player = new THREE.Mesh(geometry, material);
 			let randomPosition = emptyFields[Math.floor(Math.random() * emptyFields.length)].position;
 			player.position.set(randomPosition.x, player.position.y, randomPosition.z);
@@ -293,6 +264,7 @@ function Board() {
 		camera.updateProjectionMatrix();
 
 		if(canvasNeedsRerendering) {
+			console.log('rendered');
 			renderer.render(scene, camera);
 			canvasNeedsRerendering = false;
 		}
