@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { WEBGL } from 'three/examples/jsm/WebGL';
@@ -10,6 +10,7 @@ import wallNormalMap from 'url:../../../public/assets/wallNormalMap.png';
 
 function Board() {
 	const boardReference = useRef();
+	let [gameStarted, gameStartedSetter] = useState(false);
 
 	const up = ['KeyW', 'ArrowUp'];
 	const down = ['KeyS', 'ArrowDown'];
@@ -44,7 +45,6 @@ function Board() {
 		//renderer
 		renderer = new THREE.WebGLRenderer({
 			canvas: boardReference.current,
-			powerPreference: 'high-performance'
 		});
 		renderer.setSize(width, height, false);
 
@@ -78,7 +78,7 @@ function Board() {
 
 	//draw objects and create maze
 	function startGame() {
-		console.time('start game');
+		gameStartedSetter(true)
 		//create maze
 		mazeHeight = 5;
 		mazeWidth = 2;
@@ -99,7 +99,6 @@ function Board() {
 		togglePointerControls();
 		//rerender when player moves
 		addRenderingEvents();
-		console.timeEnd('start game');
 		//initial render
 		requestAnimationFrame(render);
 
@@ -211,7 +210,6 @@ function Board() {
 			wallInstances.instanceMatrix.needsUpdate = true;
 			wallInstances.material.needsUpdate = true;
 			scene.add(wallInstances);
-			console.log('maze visualization', mazeVisualization);
 
 			wallsBoundingBox = mazeVisualization.flat().filter((wallBoundingBox) => wallBoundingBox !== null);
 		}
@@ -264,7 +262,6 @@ function Board() {
 		camera.updateProjectionMatrix();
 
 		if(canvasNeedsRerendering) {
-			console.log('rendered');
 			renderer.render(scene, camera);
 			canvasNeedsRerendering = false;
 		}
@@ -289,9 +286,6 @@ function Board() {
 		case right[0]:
 		case right[1]:
 			movePlayer(controls.moveRight, player.speed);
-			break;
-		case 'Space':
-			camera.position.y += 0.1;
 		}
 		canvasNeedsRerendering = true;
 	}
@@ -333,9 +327,13 @@ function Board() {
 				className={'boardContainer__board'}
 				ref={boardReference}
 			></canvas>
-			<button className={'btn boardContainer__btn--start'} onClick={startGame}>
-        Click To Start
-			</button>
+			{
+				!gameStarted ?
+				<button className={'btn boardContainer__btn--start'} onClick={startGame}>
+        		Click To Start
+        		</button>
+        		: null
+			}
 		</div>
 	);
 }
